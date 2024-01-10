@@ -1,2 +1,2 @@
 # rsa
-verilog implementation of RSA encode and decode
+verilog implementation of RSA encrypt and decrypt
