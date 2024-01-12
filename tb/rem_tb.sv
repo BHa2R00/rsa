@@ -1,85 +1,91 @@
-//`define ASYNC
-`include "../rtl/rem.v"
-`timescale 1ns/100ps
-
-module rem_tb;
-
-reg clk;
-initial clk = 0;
-always #4.446 clk = ~clk;
-reg rstn;
-
-task reset_n;
-	rstn = 0;
-	repeat(10) @(negedge clk);
-	rstn = 1;
-endtask
-
-task reset_p;
-	rstn = 1;
-	repeat(10) @(negedge clk);
-	rstn = 0;
-endtask
-
-parameter MSB = 7;
-wire ack;
-wire [1:0] cst, nst;
-reg req;
-wire [MSB:0] tx_data;
-reg [MSB:0] rx_data_2;
-reg [2*(MSB+1)-1:0] rx_data_1;
-reg enable;
-rem #(
-	.MSB(MSB) 
-) u_rem(
-	.ack(ack), 
-	.cst(cst), .nst(nst), 
-	.req(req), 
-	.tx_data(tx_data), 
-	.rx_data_2(rx_data_2), 
-	.rx_data_1(rx_data_1), 
-	.enable(enable), 
-	.rstn(rstn), .clk(clk) 
+module rem #(
+	parameter MSB = 7 
+)(
+	output ack, 
+	output reg [1:0] cst, nst, 
+	input req, 
+	output reg [MSB:0] tx_data, 
+	input [MSB:0] rx_data_2, 
+	input [2*(MSB+1)-1:0] rx_data_1, 
+	input enable, 
+`ifdef ASYNC
+	input async_se, lck, test_se, 
+`endif
+	input rstn, clk 
 );
 
-task enable_p;
-	enable = 0;
-	repeat(10) @(negedge clk);
-	enable = 1;
-endtask
+`ifdef ASYNC
+wire clk0 = test_se ? clk : async_se ? lck  : clk;
+`endif
 
-task enable_n;
-	enable = 1;
-	repeat(10) @(negedge clk);
-	enable = 0;
-endtask
+reg [2*(MSB+1)-1:0] r;
+reg [MSB:0] b;
+wire [2*(MSB+1)-1:0] nst_r = r + ~{{(MSB+1){b[MSB]}}, b} + 1;
+wire lt = nst_r[2*(MSB+1)-1];
+wire eq0 = b == 0;
 
-task test1;
-	$display("test1 start");
-	enable_p;
-	repeat(10) begin
-		rx_data_1 = $urandom_range(0, 2**(2**(MSB+1))-1);
-		rx_data_2 = $urandom_range(0, 2**MSB);
-		req = ~req;
-		@(posedge ack);
-	end
-	enable_n;
-	$display("test1 end");
-endtask
-
-initial begin
-	rx_data_1 = $urandom_range(0, 2**(2**(MSB+1))-1);
-	rx_data_2 = $urandom_range(0, 2**MSB);
-	req = 0;
-	reset_n;
-	repeat(10) test1;
-	reset_p;
-	$finish;
+`ifndef GRAY
+	`define GRAY(X) (X^(X>>1))
+`endif
+localparam [1:0]
+	st_calc		= `GRAY(3),
+	st_if		= `GRAY(2),
+	st_load		= `GRAY(1),
+	st_idle		= `GRAY(0);
+reg req_d;
+`ifdef ASYNC
+always@(negedge rstn or posedge clk0) begin
+`else
+always@(negedge rstn or posedge clk) begin
+`endif
+	if(!rstn) req_d <= 1'b0;
+	else if(enable) req_d <= req;
 end
+wire req_x = req_d ^ req;
+`ifdef ASYNC
+always@(negedge rstn or posedge clk0) begin
+`else
+always@(negedge rstn or posedge clk) begin
+`endif
+	if(!rstn) cst <= st_idle;
+	else if(enable) cst <= nst;
+end
+always@(*) begin
+	case(cst)
+		st_idle: nst = req_x ? st_load : cst;
+		st_load: nst = st_if;
+		st_if: nst = (lt || eq0) ? st_idle : st_calc;
+		st_calc: nst = st_if;
+		default: nst = st_idle;
+	endcase
+end
+assign ack = cst == st_idle;
 
-initial begin
-  $dumpfile("../work/rem_tb.fst");
-	$dumpvars(0, rem_tb);
+`ifdef ASYNC
+always@(negedge rstn or posedge clk0) begin
+`else
+always@(negedge rstn or posedge clk) begin
+`endif
+	if(!rstn) begin
+		r <= 0;
+		b <= 0;
+		tx_data <= 0;
+	end
+	else if(enable) begin
+		case(nst)
+			st_load: begin
+				r <= rx_data_1;
+				b <= rx_data_2;
+			end
+			st_calc: r <= nst_r;
+			st_idle: tx_data <= r[MSB:0];
+			default: begin
+				r <= r;
+				b <= b;
+				tx_data <= tx_data;
+			end
+		endcase
+	end
 end
 
 endmodule
