@@ -20,8 +20,8 @@ wire clk0 = test_se ? clk : async_se ? lck  : clk;
 
 reg [2*(MSB+1)-1:0] r;
 reg [MSB:0] b;
-wire [2*(MSB+1)-1:0] nst_r = r - {{(MSB+1){b[MSB]}}, b};
-wire lt = r < {{(MSB+1){b[MSB]}}, b};
+wire [2*(MSB+1)-1:0] nst_r = r + ~{{(MSB+1){b[MSB]}}, b} + 1;
+wire lt = nst_r[2*(MSB+1)-1];
 wire eq0 = b == 0;
 
 `ifndef GRAY
