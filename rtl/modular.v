@@ -31,7 +31,7 @@ wire for_end = ~(i < 8);
 wire rem_ack;
 reg rem_req;
 wire [MSB:0] rem_tx_data;
-reg [MSB:0] n;
+wire [MSB:0] n = rx_data_3;
 reg [2*(MSB+1)-1:0] rem_rx_data_1;
 rem #(
 	.MSB(MSB) 
@@ -123,7 +123,7 @@ always@(negedge rstn or posedge clk) begin
 		m <= 0;
 		i <= 0;
 		rem_rx_data_1 <= 0;
-		n <= 0;
+		//n <= 0;
 		tx_data <= 0;
 	end
 	else if(enable) begin
@@ -132,7 +132,7 @@ always@(negedge rstn or posedge clk) begin
 			st_load: begin
 				p <= rx_data_1;
 				b <= {1'b0, rx_data_2};
-				n <= rx_data_3;
+				//n <= rx_data_3;
 				m <= 0;
 				i <= 0;
 			end
@@ -149,7 +149,7 @@ always@(negedge rstn or posedge clk) begin
 		 		m <= m;
 		 		i <= i;
 		 		rem_rx_data_1 <= rem_rx_data_1;
-				n <= n;
+				//n <= n;
 			end
 		endcase
 	end
@@ -159,8 +159,8 @@ endmodule
 
 
 module modexpt #(
-	parameter I_MSB = 2, 
-	parameter J_MSB = 10 
+	parameter I_MSB = 3, 
+	parameter J_MSB = 3 
 )(
 	output ack, 
 	output reg [3:0] cst, nst, 
@@ -169,6 +169,7 @@ module modexpt #(
 	input req, 
 	output reg [(2**(I_MSB+1)-1):0] tx_data, 
 	input [((2**(J_MSB+1))-1):0] rx_data_2, 
+	input [J_MSB+1:0] rx_data_2_msb, 
 	input [(2**(I_MSB+1)-1):0] rx_data_1, rx_data_3, 
 	input enable, 
 `ifdef ASYNC
@@ -191,7 +192,8 @@ wire modmult_ack;
 reg modmult_req;
 wire [(2**(I_MSB+1)-1):0] modmult_tx_data;
 reg [(2**(I_MSB+1)-1):0] e;
-reg [(2**(I_MSB+1)-1):0] modmult_rx_data_1, n;
+reg [(2**(I_MSB+1)-1):0] modmult_rx_data_1;
+wire [(2**(I_MSB+1)-1):0] n = rx_data_3;
 modmult #(
 	.MSB((2**(I_MSB+1)-1)), 
 	.I_MSB(I_MSB) 
@@ -285,7 +287,7 @@ always@(negedge rstn or posedge clk) begin
 		b <= 0;
 		modmult_rx_data_1 <= 0;
 		e <= 0;
-		n <= 0;
+		//n <= 0;
 		j <= 0;
 		tx_data <= 0;
 	end
@@ -293,13 +295,14 @@ always@(negedge rstn or posedge clk) begin
 		case(nst)
 			st_idle: begin
 				tx_data <= e;
-				j <= {1'b0, {(J_MSB+1){1'b1}}};
+				//j <= {1'b0, {(J_MSB+1){1'b1}}};
+				j <= rx_data_2_msb;
 			end
 			st_load: begin
 				a <= rx_data_1;
 				b <= rx_data_2;
 				e <= b_j ? rx_data_1 : 1;
-				n <= rx_data_3;
+				//n <= rx_data_3;
 				j <= j - 1;
 			end
 			st_e0_req: modmult_rx_data_1 <= e;
@@ -312,7 +315,7 @@ always@(negedge rstn or posedge clk) begin
 				b <= b;
 				modmult_rx_data_1 <= modmult_rx_data_1;
 				e <= e;
-				n <= n;
+				//n <= n;
 			end
 		endcase
 	end
